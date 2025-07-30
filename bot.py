@@ -5,7 +5,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 TOKEN = "8058105739:AAGYQ2goMQqS1KOTaHQ9e6zTIfcTDJv1MiA"
 
 # URL de ta WebApp MeltLabz (à adapter si besoin)
-WEBAPP_URL = "https://meltlabz.us/"
+WEBAPP_URL = "https://meltlabz.us/miniapp/"
 
 # Commande /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
