@@ -1,20 +1,68 @@
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
 TOKEN = "8058105739:AAGYQ2goMQqS1KOTaHQ9e6zTIfcTDJv1MiA"
-WEBAPP_URL = "https://meltlabz.us/"  # Remplace par ton vrai lien
+WEBAPP_URL = "https://meltlabz.us/"
+CHAT_URL = "https://t.me/MeltLabz"
+CONTACT_URL = "https://t.me/MeltLabz"
+
+# Réponses traduites
+descriptions = {
+    "en": "🔬 MeltLabz brings you the finest modern extracts and authentic verified strains.\nQuality. Transparency. Melt only.",
+    "fr": "🔬 MeltLabz sélectionne pour vous les meilleurs extraits modernes, certifiés et traçables.\nQualité. Transparence. Zéro compromis.",
+    "es": "🔬 MeltLabz ofrece los mejores extractos modernos, verificados y auténticos.\nCalidad. Confianza. Sólo Melt."
+}
+
+view_button_labels = {
+    "en": "🧪 View Products",
+    "fr": "🧪 Voir les Produits",
+    "es": "🧪 Ver Productos"
+}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    await context.bot.send_animation(chat_id=chat_id, animation="https://meltlabz.us/assets/loader.gif")
+
     keyboard = [[
-        InlineKeyboardButton("🧪 Voir les Produits", web_app=WebAppInfo(url=WEBAPP_URL))
+        InlineKeyboardButton("🇺🇸 English", callback_data="lang_en"),
+        InlineKeyboardButton("🇫🇷 Français", callback_data="lang_fr"),
+        InlineKeyboardButton("🇪🇸 Español", callback_data="lang_es")
     ]]
-    await update.message.reply_text(
-        "👋 *Bienvenue sur MeltLabz !*\nClique sur le bouton ci-dessous pour voir les produits 🔬",
-        parse_mode="Markdown",
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text="🌐 Please select your language :",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-if __name__ == "__main__":
+async def select_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    lang = query.data.split("_")[1]
+    text = descriptions.get(lang, descriptions["en"])
+    view_label = view_button_labels.get(lang, view_button_labels["en"])
+
+    keyboard = [
+        [
+            InlineKeyboardButton("💬 Chat", url=CHAT_URL),
+            InlineKeyboardButton("📞 Contact", url=CONTACT_URL)
+        ],
+        [
+            InlineKeyboardButton(view_label, web_app=WebAppInfo(url=WEBAPP_URL))
+        ]
+    ]
+
+    await query.edit_message_text(
+        text=text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="Markdown"
+    )
+
+def main():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(select_language, pattern="^lang_"))
     app.run_polling()
+
+if __name__ == "__main__":
+    main()
