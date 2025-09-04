@@ -2,10 +2,27 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppI
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 from keep_alive import keep_alive
 
+# === CONFIG ===============================================================
 TOKEN = "8058105739:AAGYQ2goMQqS1KOTaHQ9e6zTIfcTDJv1MiA"
-WEBAPP_URL = "https://meltlabz.us/"
-CHAT_URL = "https://t.me/MeltLabz"
+
+# Liens généraux
+CHAT_URL    = "https://t.me/MeltLabz"
 CONTACT_URL = "https://t.me/MeltLabzUS"
+
+# WebApp (page produits) par langue
+WEBAPP_URLS = {
+    "fr": "https://meltlabz.us/?lang=fr",
+    "en": "https://meltlabz.us/?lang=en",
+    "es": "https://meltlabz.us/?lang=es",
+}
+
+# Page d’informations par langue
+INFO_URLS = {
+    "fr": "https://meltlabz.us/info.php?lang=fr",
+    "en": "https://meltlabz.us/info.php?lang=en",
+    "es": "https://meltlabz.us/info.php?lang=es",
+}
+# ==========================================================================
 
 descriptions = {
     "fr": """🔥 *Bienvenue chez MeltLabz 🔥*
@@ -66,37 +83,57 @@ lang_button = {
     "es": "🌐 Cambiar idioma"
 }
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    await context.bot.send_animation(chat_id=chat_id, animation="https://meltlabz.us/assets/loader.gif")
+# =============== Handlers ================================================
 
-    keyboard = [
+def build_language_menu():
+    return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("🇺🇸 English", callback_data="lang_en"),
             InlineKeyboardButton("🇫🇷 Français", callback_data="lang_fr"),
-            InlineKeyboardButton("🇪🇸 Español", callback_data="lang_es")
+            InlineKeyboardButton("🇪🇸 Español", callback_data="lang_es"),
         ]
-    ]
-    await context.bot.send_message(chat_id=chat_id, text="🌐 Please select your language :", reply_markup=InlineKeyboardMarkup(keyboard))
+    ])
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    # Petite intro animée (peut être supprimée si tu veux)
+    await context.bot.send_animation(chat_id=chat_id, animation="https://meltlabz.us/assets/loader.gif")
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text="🌐 Please select your language :",
+        reply_markup=build_language_menu()
+    )
 
 async def select_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    lang = query.data.split("_")[1]
-    text = descriptions.get(lang, descriptions["en"])
-    btn_label = buttons.get(lang, buttons["en"])
+    lang = query.data.split("_", 1)[1]  # "en", "fr", "es"
+    context.user_data["lang"] = lang  # mémo local de la langue
+
+    text       = descriptions.get(lang, descriptions["en"])
+    btn_label  = buttons.get(lang, buttons["en"])
     info_label = info_buttons.get(lang, info_buttons["en"])
     lang_label = lang_button.get(lang, lang_button["en"])
 
+    # URLs dynamiques selon la langue, avec fallback propre
+    webapp_url = WEBAPP_URLS.get(lang, WEBAPP_URLS["en"])
+    info_url   = INFO_URLS.get(lang, INFO_URLS["en"])
+
     keyboard = [
-        [InlineKeyboardButton("📘 Information", web_app=WebAppInfo(url="https://meltlabz.us/info.php"))],
-        [InlineKeyboardButton("💬 Chat", url=CHAT_URL), InlineKeyboardButton("📞 Contact", url=CONTACT_URL)],
-        [InlineKeyboardButton(btn_label, web_app=WebAppInfo(url=WEBAPP_URL))],
-        [InlineKeyboardButton(lang_label, callback_data="back_lang")]
+        [InlineKeyboardButton(info_label, web_app=WebAppInfo(url=info_url))],
+        [InlineKeyboardButton("💬 Chat", url=CHAT_URL),
+         InlineKeyboardButton("📞 Contact", url=CONTACT_URL)],
+        [InlineKeyboardButton(btn_label, web_app=WebAppInfo(url=webapp_url))],
+        [InlineKeyboardButton(lang_label, callback_data="back_lang")],
     ]
 
-    await query.edit_message_text(text=text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+    await query.edit_message_text(
+        text=text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="Markdown"
+    )
 
 async def back_to_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -105,23 +142,25 @@ async def back_to_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = query.message.chat.id
     message_id = query.message.message_id
 
+    # Supprimer le menu courant
     await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    # Afficher le sélecteur de langue
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text="🌐 Please select your language :",
+        reply_markup=build_language_menu()
+    )
 
-    keyboard = [
-        [
-            InlineKeyboardButton("🇺🇸 English", callback_data="lang_en"),
-            InlineKeyboardButton("🇫🇷 Français", callback_data="lang_fr"),
-            InlineKeyboardButton("🇪🇸 Español", callback_data="lang_es")
-        ]
-    ]
-    await context.bot.send_message(chat_id=chat_id, text="🌐 Please select your language :", reply_markup=InlineKeyboardMarkup(keyboard))
+# =============== Boot =====================================================
 
 def main():
     keep_alive()
     app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(CallbackQueryHandler(back_to_language, pattern="^back_lang$"))
-    app.add_handler(CallbackQueryHandler(select_language, pattern="^lang_"))
+
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(select_language, pattern=r"^lang_"))
+    app.add_handler(CallbackQueryHandler(back_to_language, pattern=r"^back_lang$"))
+
     app.run_polling()
 
 if __name__ == "__main__":
